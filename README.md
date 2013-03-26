@@ -1,4 +1,4 @@
 yii-variable-input
 ==================
 
-variable input fo ryii
+variable input for yii
