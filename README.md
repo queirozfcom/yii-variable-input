@@ -8,6 +8,9 @@ For example, say you want to create a view to write a blog post and add tags to 
 In other words, it's a variable-length javascript widget.
 
 ##TODO##
--add screenshots
--add a working demo
--add the php validator to be used with it
+
+ -add screenshots
+ 
+ -add a working demo
+ 
+ -add the php validator to be used with it
