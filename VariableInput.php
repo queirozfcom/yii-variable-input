@@ -109,11 +109,11 @@ EOF;
         $attribute = $this->attribute;
 
         //we need to initialize the widget the same way normal inputs are initialized when we set a value to the form model attribute.
-        if (isset($this->values) && !empty($this->values)) {
+        if (isset($this->values) && !empty($this->values))
             $this->setInitialValuesBasedOnValuesArray();
-        } elseif (isset($this->model->$attribute)) {
+        elseif (isset($this->model->$attribute))
             $this->setInitialValuesBasedOnModel($attribute);
-        }
+        
     }
 
     public function run() {
@@ -132,9 +132,8 @@ EOF;
             $this->assetsUrl = $url;
 
             return $this->assetsUrl;
-        } else {
+        } else
             return $this->assetsUrl;
-        }
     }
 
     private function setInitialValuesBasedOnValuesArray() {
@@ -200,21 +199,22 @@ EOF;
 
     private function validateOptions() {
         Yii::import('ext.widgets.VariableInput.exceptions.VariableInputException');
-        if (is_null($this->attribute) and is_null($this->model)) {
+        
+        if (is_null($this->attribute) and is_null($this->model))
             throw new VariableInputException('Either "attribute" or "model" attributes for VariableInputWidget');
-        }
-        if (empty($this->attributes)) {
+        
+        if (empty($this->attributes))
             throw new VariableInputException('The "attributes" attribute must be an array with, at least, one attribute name.');
-        }
+        
     }
 
     private function setDefaultValuesForOptions() {
         if (is_null($this->id)) {
-            if (is_null($this->model)) {
+            if (is_null($this->model))
                 $this->id = $this->p->purify($this->name);
-            } else {
+            else
                 $this->id = $this->p->purify(get_class($this->model) . "_" . $this->attribute);
-            }
+            
         }
 
         if (is_null($this->model)) {
