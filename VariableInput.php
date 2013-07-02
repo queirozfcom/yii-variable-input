@@ -1,10 +1,5 @@
 <?php
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
 /**
  * Description of VariableInputWidget
  *
@@ -17,9 +12,44 @@ class VariableInput extends CWidget {
     public $addItemIcon = 'plus';
     public $removeItemIcon = 'minus';
     public $attribute = null;
+
+    /**
+     * The input fields that are going to get displayed on every row.
+     * @example $attributes = [
+     *              [
+     *                  'name'=>'employee_name',
+     *                  'type'=>'textinput'
+     *              ],
+     *              [
+     *                  'name'=>'company',
+     *                  'type'=>'textarea'
+     *              ]
+     *          ];    
+     * 
+     * @var array
+     */
     public $attributes = [];
     public $addItemTooltipText = 'Add a new Item';
     public $removeItemTooltipText = 'Remove this Item';
+
+    /**
+     * Values (if any) to initialize the widget. Fields initialized here must match those found in the $attributes attribute.
+     * 
+     * 
+     * @example the following example matches the example used for the $attributes attribute. It could be used to initialize the widget with two pre-populated rows.
+     *  $values = [
+     *      [
+     *          'employee_name'=>'John',
+     *          'company'=>'IBM'
+     *      ],
+     *      [
+     *          'employee_name'=>'Joana',
+     *          'company'=>'Msoft'
+     *      ];                      
+     *          
+     * 
+     * @var array 
+     */
     public $values = null;
     private $addItemIconPath;
     private $assetsUrl;
@@ -29,6 +59,7 @@ class VariableInput extends CWidget {
     private $removeItemIconPath;
 
     public function init() {
+
         parent::init();
 
         $this->p = new CHtmlPurifier;
@@ -36,17 +67,12 @@ class VariableInput extends CWidget {
         $this->validateOptions();
         $this->setDefaultValuesForOptions();
 
+        Yii::app()->getClientScript()->registerScriptFile($this->getAssetsUrl() . '/lib.js');
+        Yii::app()->getClientScript()->registerCssFile($this->getAssetsUrl() . '/main.css');
+
         $js = <<<EOF
-   
-Array.max = function( array ){
-    return Math.max.apply( Math, array );
-};
-Array.min = function( array ){
-    return Math.min.apply( Math, array );
-};   
-   
 $(document).on('click','.variable_input_widget_button.remove_button',function(){
-   //if remove button is pressed, remove the current row from the div and re-number all the subsequent ones
+    //if remove button is pressed, remove the current row from the div and re-number all the subsequent ones
    
     formDiv=$(this).parent().parent().parent();
 
@@ -62,7 +88,7 @@ $(document).on('click','#{$this->id}',function(){
     var formdiv = $("#{$this->divId}");
     
     matches = formdiv.html().match(/(\[\d\])/ig);
-
+    
     var num;
     
     if(matches===null){
@@ -74,35 +100,58 @@ $(document).on('click','#{$this->id}',function(){
     formdiv.append('<div class=\'variable_input_widget_row_div\' id=\'viw_row_div_'+num+'\'>
 EOF;
 
-        foreach ($this->attributes as $key => $value) {
+        if ($this->allAttributesAreTextInputs())
+            $separator = '&nbsp;';
+        else
+            $separator = '<br />';
 
-            //this IF deals separately with cases where just a name was supplied as opposed
-            //to cases where something like "name"=>[options] was supplied for each attribute
-            //this needs to be changed if other input types are to be supported
-            if (is_int($key)) {
 
+        foreach ($this->attributes as $element) {
+
+            if (!is_array($element))
+                throw new VariableInputException('Attribute $attributes of VariableInputWidget should be an array of associative arrays. Each of the inner arrays is composed of name-value pairs that each set the options for what a row should look like.');
+
+            if ($element['type'] !== 'textarea' && $element['type'] !== 'textinput' && $element['type'] !== 'combobox')
+                throw new VariableInputException('Invalid input type. Valid input types are "textinput" and "textarea", got: "' . $element['type'] . '".');
+
+            $input_name = $element['name'];
+            $input_type = $element['type'];
+
+            if ($input_type === 'textarea') {
                 $js .= <<<EOF
-<input type=\'text\' name="{$this->name}['+ num +'][{$value}]" placeholder="{$value}"  /> 
+<textarea name="{$this->name}['+ num +'][{$input_name}]" style="height:90px;resize:vertical;width:90%;"></textarea>{$separator}
 EOF;
-            }
-        }
-        $js .=<<<EOF
-<button type=\'button\' tabIndex=\'-1\' class=\'variable_input_widget_button remove_button\' style=\'position:relative;top:-1px;\' id=\'viw_remove_button_'+num+'\' ><img src=\'{$this->removeItemIconPath}\' {$this->removeItemTooltipText} /></button>
+            } elseif ($input_type === 'textinput') {
+                $js .= <<<EOF
+<input type=\'text\' name="{$this->name}['+ num +'][{$input_name}]" placeholder="{$input_name}" />                      
+EOF;
+            } elseif ($input_type === 'combobox') {
+                $options = preg_split('/,/', $this->getOptions($input_name));
+
+                $code = <<<EOF
+<select name="{$this->name}['+ num +'][{$input_name}]"><option value=\'Please select\'>Please select</option>";
 EOF;
 
-        $js.=<<<EOF
-<br /></div>');
+                foreach ($options as $option) {
+                    $code .= "<option value=\'{$option}\'>{$option}</option>";
+                }
+
+                $code .= "</select>";
+
+                $js .= $code;
+            }
+            else
+                throw new VariableInputException('Input type not supported: "' . $input_type . '"');
+        }
+        $js = preg_replace('/<br \/>$/', '', $js);
+
+        $js .=<<<EOF
+&nbsp;<button type=\'button\' tabIndex=\'-1\' class=\'variable_input_widget_button remove_button\' style=\'position:relative;top:-1px;\' id=\'viw_remove_button_'+num+'\' ><img src=\'{$this->removeItemIconPath}\' {$this->removeItemTooltipText} /></button><br /><br /></div>');
 $('[rel="tooltip"]').tooltip({show:200,hide:1});
 });
-
-function removeRow(divElement,rowIdToRemove){
-    $('.tooltip').remove();
-    $('#viw_row_div_'+rowIdToRemove,divElement).remove();
-}
-
 EOF;
 
-        Yii::app()->getClientScript()->registerCssFile($this->getAssetsUrl() . "/main.css");
+        //$js = preg_replace('/(\n|\r\n|\r)/', '\\n', $js);
 
         Yii::app()->getClientScript()->registerScript('variable-form' . $this->divId, $js);
 
@@ -113,7 +162,6 @@ EOF;
             $this->setInitialValuesBasedOnValuesArray();
         elseif (isset($this->model->$attribute))
             $this->setInitialValuesBasedOnModel($attribute);
-        
     }
 
     public function run() {
@@ -132,8 +180,22 @@ EOF;
             $this->assetsUrl = $url;
 
             return $this->assetsUrl;
-        } else
+        }
+        else
             return $this->assetsUrl;
+    }
+
+    /**
+     * PRIVATE PARTS 
+     */
+    private function allAttributesAreTextInputs() {
+        $attributes = $this->attributes;
+
+        foreach ($attributes as $row_config) {
+            if ($row_config['type'] !== 'textinput')
+                return false;
+        }
+        return true;
     }
 
     private function setInitialValuesBasedOnValuesArray() {
@@ -145,25 +207,119 @@ var formdiv = $("#{$this->divId}");
 var num = 0;
 
 EOF;
-        foreach ($initialization_array as $line) {
+
+        if ($this->allAttributesAreTextInputs())
+            $separator = '&nbsp;';
+        else
+            $separator = '<br />';
+
+        foreach ($initialization_array as $row_values) {
 
             $js .=" formdiv.append('<div class=\'variable_input_widget_row_div\' id=\'viw_row_div_'+ num +'\'>";
+            //associative array , 'name'=>'value'
+            foreach ($row_values as $name => $value) {
 
-            foreach ($line as $name => $value) {
-                $js .= <<<EOF
-<input type=\'text\' name="{$this->name}['+ num +'][{$name}]" placeholder="{$name}" value="{$value}" /> 
+                $type = $this->getInputType($name);
+
+                if ($type === 'textarea') {
+                    //javascript chokes on newlines
+                    $value = preg_replace('/(\n|\r\n|\r)/', '\\n', $value);
+
+                    $js .= <<<EOF
+<textarea name="{$this->name}['+ num +'][{$name}]" style="height:90px;resize:vertical;width:90%;">{$value}</textarea>{$separator}
 EOF;
+                } elseif ($type === 'textinput') {
+                    $js .= <<<EOF
+<input type=\'text\' name="{$this->name}['+ num +'][{$name}]" placeholder="{$name}" value="{$value}" />{$separator}
+EOF;
+                } elseif ($type === 'combobox') {
+
+                    $options = preg_split('/,/', $this->getOptions($name));
+
+                    $code = <<<EOF
+<select name="{$this->name}['+ num +'][{$name}]"><option value=\'Please select\'>Please select</option>";
+EOF;
+
+                    foreach ($options as $option) {
+
+                        if ($value === $option)
+                            $code .= "<option value=\'{$option}\' selected=\'selected\' >{$option}</option>";
+                        else
+                            $code .= "<option value=\'{$option}\'>{$option}</option>";
+                    }
+
+                    $code .= "</select>";
+
+                    $js .= preg_replace('/(\n|\r\n|\r)/', '\\n', $code);
+                }
+                else
+                    throw new VariableInputException('Input type not supported: "' . $type . '"');
             }
+
+            $js = preg_replace('/<br \/>$/', '', $js);
+
             $js .=<<<EOF
-<button type=\'button\' tabIndex=\'-1\' class=\'variable_input_widget_button remove_button\' style=\'position:relative;top:-1px;\' id=\'viw_remove_button_'+ num++ +'\'><img src=\'{$this->removeItemIconPath}\' {$this->removeItemTooltipText} /></button><br /></div>');
+&nbsp;<button type=\'button\' tabIndex=\'-1\' class=\'variable_input_widget_button remove_button\' style=\'position:relative;top:-1px;\' id=\'viw_remove_button_'+ num++ +'\'><img src=\'{$this->removeItemIconPath}\' {$this->removeItemTooltipText} /></button><br /><br /></div>');
 EOF;
         }
 
-        $js.=<<<EOF
+//        foreach ($initialization_array as $line) {
+//
+//            $js .=" formdiv.append('<div class=\'variable_input_widget_row_div\' id=\'viw_row_div_'+ num +'\'>";
+//
+//            foreach ($line as $name => $value) {
+//                
+//                echo '<pre>';
+//                var_dump($value);
+//                echo '</pre>';
+//                
+//                $js .= <<<EOF
+//<input type=\'text\' name="{$this->name}['+ num +'][{$name}]" placeholder="{$name}" value="{$value}" /> 
+//EOF;
+//            }
+//            $js .=<<<EOF
+//<button type=\'button\' tabIndex=\'-1\' class=\'variable_input_widget_button remove_button\' style=\'position:relative;top:-1px;\' id=\'viw_remove_button_'+ num++ +'\'><img src=\'{$this->removeItemIconPath}\' {$this->removeItemTooltipText} /></button><br /></div>');
+//EOF;
+//        }
 
+        $js.=<<<EOF
+//everytime combobox gets changed, we remove that option from the other comboboxes within the same div because we don't want users being able to select the same option twice or more
+$('select',formdiv).change(updateOtherComboboxesWithinTheSameDiv);                
 $('[rel="tooltip"]').tooltip({show:200,hide:1});
 EOF;
         Yii::app()->getClientScript()->registerScript('initializing-values' . $this->divId, $js);
+    }
+    
+    private function getInputType($input_name) {
+        foreach ($this->attributes as $attribute_config_array) {
+
+            if ($attribute_config_array['name'] === $input_name)
+                return $attribute_config_array['type'];
+        }
+
+        throw new VariableInputException('Failed to find input type for input whose name is :"' . $input_name . '"');
+    }
+
+    /**
+     * Get options to be displayed in a combobox (will throw an Exception if $input_name does not represent a combobox.)
+     * 
+     * @param type $input_name
+     * @return string
+     * @throws VariableInputException
+     */
+    private function getOptions($input_name) {
+        foreach ($this->attributes as $row_config) {
+            if ($row_config['name'] === $input_name)
+                if ($row_config['type'] === 'combobox') {
+                    if (isset($row_config['options']))
+                        return $row_config['options'];
+                    else
+                        throw new VariableInputException('Options not found for attribute "' . $input_name . '"');
+                }
+                else
+                    throw new VariableInputException('Failed to fetch "options" for attribute "' . $input_name . '": its type is not combobox.');
+        }
+        throw new VariableInputException('Failed to fetch "options" node attribute for attribute "' . $input_name . '": attribute not found.');
     }
 
     private function setInitialValuesBasedOnModel($attribute) {
@@ -199,13 +355,12 @@ EOF;
 
     private function validateOptions() {
         Yii::import('ext.widgets.VariableInput.exceptions.VariableInputException');
-        
-        if (is_null($this->attribute) and is_null($this->model))
-            throw new VariableInputException('Either "attribute" or "model" attributes for VariableInputWidget');
-        
+
+        if (is_null($this->attribute) && is_null($this->model))
+            throw new VariableInputException('Either "attribute" or "model" attributes for VariableInputWidget must be set.');
+
         if (empty($this->attributes))
-            throw new VariableInputException('The "attributes" attribute must be an array with, at least, one attribute name.');
-        
+            throw new VariableInputException('The "attributes" attribute must be a non-empty array of associative arrays, each defining an input field to be displayed.');
     }
 
     private function setDefaultValuesForOptions() {
@@ -214,15 +369,12 @@ EOF;
                 $this->id = $this->p->purify($this->name);
             else
                 $this->id = $this->p->purify(get_class($this->model) . "_" . $this->attribute);
-            
         }
 
-        if (is_null($this->model)) {
+        if (is_null($this->model))
             $this->name = $this->p->purify($this->attribute);
-        } else {
+        else
             $this->name = $this->p->purify(get_class($this->model) . "[" . $this->attribute . "]");
-        }
-
 
         $this->id = $this->p->purify($this->id);
 
