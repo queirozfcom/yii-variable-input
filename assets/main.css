@@ -1,0 +1,19 @@
+.variable_input_widget_button{
+    width:31px;
+    height:31px;
+}
+
+button.remove_button{
+    position:relative;
+    top:-4px;
+}
+
+span.resemble-form-label-span{
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.variable_input_widget_button img{
+    position:relative;
+    top:-2px;
+}
