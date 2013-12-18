@@ -9,8 +9,10 @@ In other words, it's a variable-length javascript widget.
 
 ##TODO##
 
- -add screenshots
+ - add screenshots
  
- -add a working demo
+ - add a working demo
  
- -add the php validator to be used with it
+ - add the php validator to be used with it
+ 
+ - add the form that I usually use with this
